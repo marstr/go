@@ -65,6 +65,14 @@ func ExampleRegexp_FindStringSubmatch() {
 	// ["abzc" "" "z"]
 }
 
+func ExampleRegexp_FindNamedStringSubmatch() {
+	re := regexp.MustCompile("(?P<first>[a-zA-Z]+) (?P<last>[a-zA-Z]+)")
+	match := re.FindNamedStringSubmatch("Edsger Dijkstra")
+	fmt.Printf("whole: %q first: %q last: %q", match[""], match["first"], match["last"])
+	// Output:
+	// whole: "Edsger Dijkstra" first: "Edsger" last: "Dijkstra"
+}
+
 func ExampleRegexp_FindAllString() {
 	re := regexp.MustCompile("a.")
 	fmt.Println(re.FindAllString("paranormal", -1))
@@ -89,6 +97,18 @@ func ExampleRegexp_FindAllStringSubmatch() {
 	// [["axxb" "xx"]]
 	// [["ab" ""] ["axb" "x"]]
 	// [["axxb" "xx"] ["ab" ""]]
+}
+
+func ExampleRegexp_FindAllNamedStringSubmatch() {
+	re := regexp.MustCompile(`(?m)^(?P<first>[a-zA-Z]+) (?P<last>[a-zA-Z]+)$`)
+	matches := re.FindAllNamedStringSubmatch(`Edsger Dijkstra
+Alan Turing`, -1)
+	for _, match := range matches {
+		fmt.Printf("whole: %q first: %q last: %q\n", match[""], match["first"], match["last"])
+	}
+	// Output:
+	// whole: "Edsger Dijkstra" first: "Edsger" last: "Dijkstra"
+	// whole: "Alan Turing" first: "Alan" last: "Turing"
 }
 
 func ExampleRegexp_FindAllStringSubmatchIndex() {

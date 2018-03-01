@@ -21,10 +21,10 @@
 //
 // All characters are UTF-8-encoded code points.
 //
-// There are 16 methods of Regexp that match a regular expression and identify
+// There are 20 methods of Regexp that match a regular expression and identify
 // the matched text. Their names are matched by this regular expression:
 //
-//	Find(All)?(String)?(Submatch)?(Index)?
+//	Find(All)?(Named)?(String)?(Submatch)?(Index)?
 //
 // If 'All' is present, the routine matches successive non-overlapping
 // matches of the entire expression. Empty matches abutting a preceding
@@ -32,6 +32,10 @@
 // return values of the corresponding non-'All' routine. These routines take
 // an extra integer argument, n; if n >= 0, the function returns at most n
 // matches/submatches.
+//
+// If 'Named' is present, the return value is a map of subexpression names
+// to submatches. (See below for more information on submatches) In addition,
+// the key "" maps to the match of the whole expression.
 //
 // If 'String' is present, the argument is a string; otherwise it is a slice
 // of bytes; return values are adjusted as appropriate.
@@ -804,6 +808,21 @@ func (re *Regexp) FindSubmatch(b []byte) [][]byte {
 	return ret
 }
 
+func (re *Regexp) FindNamedSubmatch(b []byte) map[string][]byte {
+	var dstCap [4]int
+	a := re.doExecute(nil, b, "", 0, re.prog.NumCap, dstCap[:0])
+	if a == nil {
+		return nil
+	}
+	ret := make(map[string][]byte, re.numSubexp)
+	for i, sub := range re.subexpNames {
+		if 2*i < len(a) && a[2*i] >= 0 {
+			ret[sub] = b[a[2*i]:a[2*i+1]]
+		}
+	}
+	return ret
+}
+
 // Expand appends template to dst and returns the result; during the
 // append, Expand replaces variables in the template with corresponding
 // matches drawn from src. The match slice should have been returned by
@@ -961,6 +980,28 @@ func (re *Regexp) FindStringSubmatch(s string) []string {
 	return ret
 }
 
+// FindNamedStringSubmatch returns a map of strings holding the matches of its
+// subexpressions, if any, as defined by the 'Submatch' descirption in the package
+// comment.
+// A return value of nil indicates no match.
+func (re *Regexp) FindNamedStringSubmatch(s string) map[string]string {
+	var dstCap [4]int
+	a := re.doExecute(nil, nil, s, 0, re.prog.NumCap, dstCap[:0])
+	if a == nil {
+		return nil
+	}
+	ret := make(map[string]string, re.numSubexp)
+	for i, sub := range re.subexpNames {
+		if i > 0 && sub == "" {
+			continue
+		}
+		if 2*i < len(a) && a[2*i] >= 0 {
+			ret[sub] = s[a[2*i]:a[2*i+1]]
+		}
+	}
+	return ret
+}
+
 // FindStringSubmatchIndex returns a slice holding the index pairs
 // identifying the leftmost match of the regular expression in s and the
 // matches, if any, of its subexpressions, as defined by the 'Submatch' and
@@ -1077,6 +1118,29 @@ func (re *Regexp) FindAllSubmatch(b []byte, n int) [][][]byte {
 	return result
 }
 
+func (re *Regexp) FindAllNamedSubmatch(b []byte, n int) []map[string][]byte {
+	if n < 0 {
+		n = len(b) + 1
+	}
+	var result []map[string][]byte
+	re.allMatches("", b, n, func(match []int) {
+		if result == nil {
+			result = make([]map[string][]byte, 0, startSize)
+		}
+		dict := make(map[string][]byte)
+		for i, sub := range re.subexpNames {
+			if i > 0 && sub == "" {
+				continue
+			}
+			if match[2*i] >= 0 {
+				dict[sub] = b[match[2*i]:match[2*i+1]]
+			}
+		}
+		result = append(result, dict)
+	})
+	return result
+}
+
 // FindAllSubmatchIndex is the 'All' version of FindSubmatchIndex; it returns
 // a slice of all successive matches of the expression, as defined by the
 // 'All' description in the package comment.
@@ -1115,6 +1179,29 @@ func (re *Regexp) FindAllStringSubmatch(s string, n int) [][]string {
 			}
 		}
 		result = append(result, slice)
+	})
+	return result
+}
+
+func (re *Regexp) FindAllNamedStringSubmatch(s string, n int) []map[string]string {
+	if n < 0 {
+		n = len(s) + 1
+	}
+	var result []map[string]string
+	re.allMatches(s, nil, n, func(match []int) {
+		if result == nil {
+			result = make([]map[string]string, 0, startSize)
+		}
+		dict := make(map[string]string)
+		for i, sub := range re.subexpNames {
+			if i > 0 && sub == "" {
+				continue
+			}
+			if match[2*i] >= 0 {
+				dict[sub] = s[match[2*i]:match[2*i+1]]
+			}
+		}
+		result = append(result, dict)
 	})
 	return result
 }
